@@ -1,11 +1,12 @@
-from gene import Individual, Gene
+from gene import Gene, Individual, Populacao
+import matplotlib.pyplot as plt
 
-genes_quantity = 8
-population_size = 20
-population = []
-
-for i in range(population_size):
-    population.append(Individual(genes_quantity))
-
-for individual in population:
-    individual.print_genes_bits()
+populations = []
+for i in range(30):
+    pop = Populacao(100)
+    goat, tentativa = pop.solve()
+    print(f"Resolução: {goat} | Tentativa: {tentativa}")
+    populations.append(pop)
+    
+plt.plot(populations[0].all_mean)
+plt.show()
