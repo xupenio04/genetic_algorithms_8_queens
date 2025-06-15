@@ -1,6 +1,8 @@
 import random
 from typing import List
 import statistics
+import numpy as np
+import copy
 
 class Gene:
     def __init__(self, decimal_number:int = None, bit1:int = None, bit2:int = None, bit3:int = None):
@@ -44,7 +46,7 @@ class Individual:
             random.shuffle(individual_genes)
             self.genes = [Gene(num) for num in individual_genes]
         else:
-            self.genes = vector_genes 
+            self.genes = copy.deepcopy(vector_genes)
             
         self.fitness = self.calculate_fitness()
     
@@ -79,7 +81,9 @@ class Individual:
     def cut_and_crossfill(self, parceiro:"Individual", probabilidade=0.9):
         # Decide se aplica o crossover
         if random.random() > probabilidade:
-            return self, parceiro  # Cópias exatas dos pais
+            filho1 = Individual(self.num_genes, self.genes[:])
+            filho2 = Individual(parceiro.num_genes, parceiro.genes[:])
+            return filho1, filho2  # Cópias exatas dos pais
 
         n = self.num_genes
         corte = random.randint(1, n - 1)
@@ -107,6 +111,7 @@ class Populacao:
         self.individuos = [Individual(num_genes) for _ in range(tamanho)]
         self.all_mean = []
         self.all_stdev = []
+        self.all_best_ind = []
         
     def selecionar_pais(self, candidatos:int=5):
         # Escolhe 'candidatos' indivíduos aleatórios
@@ -114,6 +119,27 @@ class Populacao:
         candidatos_sort = sorted(candidatos_indices, key = lambda i:self.individuos[i].fitness)
         pais = candidatos_sort[candidatos-2:]
         return self.individuos[pais[0]], self.individuos[pais[1]]
+    
+    def selecionar_pais_roulette(self, candidatos:int=2):
+        # Seleção por roleta
+        total_fitness = sum(ind.fitness for ind in self.individuos)
+        if total_fitness == 0:
+            return random.choice(self.individuos), random.choice(self.individuos)
+
+        roleta = [ind.fitness / total_fitness for ind in self.individuos]
+        roleta_acumulada = [sum(roleta[:i+1]) for i in range(len(roleta))]
+
+        pais_indices = []
+        for _ in range(candidatos):
+            r = random.random()
+            for i, valor in enumerate(roleta_acumulada):
+                if r <= valor:
+                    pais_indices.append(i)
+                    break
+
+        pais_indices = sorted(pais_indices, key=lambda i: self.individuos[i].fitness, reverse=True)
+        return self.individuos[pais_indices[0]], self.individuos[pais_indices[1]]
+
     
     def substituir_piores(self, filhos:list):
         # Índices dos dois piores indivíduos
@@ -129,28 +155,77 @@ class Populacao:
     def melhor_individuo(self):
         return max(self.individuos, key=lambda x: x.fitness)
     
+    def pior_individuo(self):
+        return min(self.individuos, key=lambda x: x.fitness)
+    
     def fitness_media(self):
         return sum([individuo.fitness for individuo in self.individuos])/len(self.individuos)
     
     def fitness_stdev(self):
         return statistics.stdev([individuo.fitness for individuo in self.individuos])
     
+    def max_fit_ind(self):
+        return [ind for ind in self.individuos if ind.fitness == 28]
+    
     # Essa função roda no máximo 10.000 vezes, podendo encerrar antes se encontrar a solução
     def solve(self, max_tentativa:int = 10000, candidatos_pai:int = 5, prob_permutacao:float = 0.9, prob_mutacao:float = 0.4):
         tentativa = 0
         while tentativa < max_tentativa and self.melhor_individuo().fitness < 28:
-            pai1, pai2 = self.selecionar_pais(candidatos_pai)
+            pai1, pai2 = self.selecionar_pais_roulette(candidatos_pai)
+            Antes1= pai1.fitness
+            Antes2= pai2.fitness
+            
             filho1, filho2 = pai1.cut_and_crossfill(pai2, prob_permutacao)
             
             filho1.mutar(prob_mutacao)
             filho2.mutar(prob_mutacao)
+
+            if(pai1.fitness-Antes1 !=0 and pai2.fitness-Antes2 !=0):
+                print(f'PAI1: {pai1.fitness-Antes1} | PAI2: {pai2.fitness-Antes2}')
+                print(f'VENEZUELA')
             
             filhos = [filho1, filho2]
+
+            pior_individuo = self.pior_individuo()
             
             self.substituir_piores(filhos)
+
             
             self.all_mean.append(self.fitness_media())
             self.all_stdev.append(self.fitness_stdev())
+            self.all_best_ind.append(self.melhor_individuo().fitness)
             tentativa += 1
+
+            
+        return self.melhor_individuo(), tentativa
+    
+    def solve_all(self, candidatos_pai:int = 5, prob_permutacao:float = 0.9, prob_mutacao:float = 0.4):
+        tentativa = 0
+        while self.pior_individuo().fitness < 28:
+            pai1, pai2 = self.selecionar_pais_roulette(candidatos_pai)
+            Antes1= pai1.fitness
+            Antes2= pai2.fitness
+            
+            filho1, filho2 = pai1.cut_and_crossfill(pai2, prob_permutacao)
+            
+            filho1.mutar(prob_mutacao)
+            filho2.mutar(prob_mutacao)
+
+            if(pai1.fitness-Antes1 !=0 and pai2.fitness-Antes2 !=0):
+                print(f'PAI1: {pai1.fitness-Antes1} | PAI2: {pai2.fitness-Antes2}')
+                print(f'VENEZUELA')
+            
+            filhos = [filho1, filho2]
+
+            pior_individuo = self.pior_individuo()
+            
+            self.substituir_piores(filhos)
+
+            
+            self.all_mean.append(self.fitness_media())
+            self.all_stdev.append(self.fitness_stdev())
+            self.all_best_ind.append(self.melhor_individuo().fitness)
+            tentativa += 1
+
             
         return self.melhor_individuo(), tentativa
