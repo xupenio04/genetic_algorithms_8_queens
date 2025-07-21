@@ -57,7 +57,6 @@ def estrategia_evolutiva_modular(
     
     best_X, best_fitness = pop[np.argmin(fitness)].copy(), np.min(fitness)
     
-    # Histórico para plotagem
     historico_fitness = [best_fitness]
     historico_sigma = [sigma]
     
@@ -80,7 +79,6 @@ def estrategia_evolutiva_modular(
         sigma = ajustar_sigma(sigma, fitness[current_best_idx] < best_fitness)
         sigma = max(sigma * 0.995, 1e-12)
         
-        # Armazenar histórico
         historico_fitness.append(best_fitness)
         historico_sigma.append(sigma)
         
@@ -116,7 +114,7 @@ def plotar_convergencia(historico_fitness, fn_name):
     plt.title(f'Convergência da Função {fn_name.capitalize()}')
     plt.xlabel('Iteração')
     plt.ylabel('Melhor Fitness')
-    plt.yscale('log')  # Escala logarítmica para melhor visualização
+    plt.yscale('log') 
     plt.grid(True)
     plt.show()
 
@@ -174,7 +172,6 @@ if __name__ == "__main__":
         
         avaliar_resultados(solucao, fitness, fn_name)
         
-        # Plotagem dos gráficos
         plotar_convergencia(historico_fitness, fn_name)
         plotar_evolucao_sigma(historico_sigma, fn_name)
         plotar_distribuicao_solucao(solucao, fn_name)
