@@ -1,5 +1,6 @@
 import numpy as np
 from benchmark_functions import *
+import matplotlib.pyplot as plt
 
 def inicializar_populacao(funcao, pop_size, d):
     fn_name = funcao.__name__
@@ -43,7 +44,8 @@ def estrategia_evolutiva_modular(
     max_iter: int = 1000,
     pop_size: int = 100,
     sigma_inicial: float = None,
-    tol: float = 1e-8
+    tol: float = 1e-8,
+    verbose: bool = False
 ):
     fn_name = funcao.__name__
     min_limit = globals()[f"{fn_name.upper()}_MIN_LIMIT"]
@@ -54,6 +56,10 @@ def estrategia_evolutiva_modular(
     sigma = calcular_sigma_inicial(funcao, sigma_inicial)
     
     best_X, best_fitness = pop[np.argmin(fitness)].copy(), np.min(fitness)
+    
+    # Histórico para plotagem
+    historico_fitness = [best_fitness]
+    historico_sigma = [sigma]
     
     for t in range(max_iter):
         elite_size = max(5, pop_size//3)
@@ -69,24 +75,22 @@ def estrategia_evolutiva_modular(
         pop = np.array(new_pop)
         fitness = np.array([funcao(ind) for ind in pop])
         
-        current_best_idx = np.argmin(fitness) 
+        current_best_idx = np.argmin(fitness)
         best_X, best_fitness = atualizar_melhor_solucao(pop, fitness, best_X, best_fitness)
-        sigma = ajustar_sigma(sigma, fitness[current_best_idx] < best_fitness)  
-        sigma = max(sigma * 0.995, 1e-12)  
+        sigma = ajustar_sigma(sigma, fitness[current_best_idx] < best_fitness)
+        sigma = max(sigma * 0.995, 1e-12)
+        
+        # Armazenar histórico
+        historico_fitness.append(best_fitness)
+        historico_sigma.append(sigma)
+        
+        if verbose and t % 50 == 0:
+            print(f"Iteração {t}: Fitness = {best_fitness:.6f}, Sigma = {sigma:.6f}")
         
         if best_fitness <= tol:
             break
-        t=t+1
             
-    return best_X, best_fitness
-
-
-configs = {
-    'ackley': {'max_iter': 300, 'pop_size': 40},
-    'rastrigin': {'max_iter': 400, 'pop_size': 50},
-    'schwefel': {'max_iter': 800, 'pop_size': 60, 'sigma_inicial': 200},
-    'rosenbrock': {'max_iter': 1000, 'pop_size': 50, 'sigma_inicial': 0.5}
-}
+    return best_X, best_fitness, historico_fitness, historico_sigma
 
 def avaliar_resultados(solucao, fitness, fn_name):
     global_min = globals()[f"{fn_name.upper()}_GLOBAL_MINIMUM_PARAM"]
@@ -99,6 +103,56 @@ def avaliar_resultados(solucao, fitness, fn_name):
         print(f"x_{i+1}: {solucao[i]:.8f} (Erro: {distancias[i]:.2e})")
     print(f"Erro global: {fitness - global_min:.2e}")
 
+configs = {
+    'ackley': {'max_iter': 300, 'pop_size': 40},
+    'rastrigin': {'max_iter': 400, 'pop_size': 50},
+    'schwefel': {'max_iter': 800, 'pop_size': 60, 'sigma_inicial': 200},
+    'rosenbrock': {'max_iter': 1000, 'pop_size': 50, 'sigma_inicial': 0.5}
+}
+
+def plotar_convergencia(historico_fitness, fn_name):
+    plt.figure(figsize=(10, 6))
+    plt.plot(historico_fitness, 'b-', linewidth=2)
+    plt.title(f'Convergência da Função {fn_name.capitalize()}')
+    plt.xlabel('Iteração')
+    plt.ylabel('Melhor Fitness')
+    plt.yscale('log')  # Escala logarítmica para melhor visualização
+    plt.grid(True)
+    plt.show()
+
+def plotar_evolucao_sigma(historico_sigma, fn_name):
+    plt.figure(figsize=(10, 6))
+    plt.plot(historico_sigma, 'r-', linewidth=2)
+    plt.title(f'Evolução do Sigma para {fn_name.capitalize()}')
+    plt.xlabel('Iteração')
+    plt.ylabel('Valor do Sigma')
+    plt.grid(True)
+    plt.show()
+
+def plotar_distribuicao_solucao(solucao, fn_name):
+    global_min = globals()[f"{fn_name.upper()}_GLOBAL_MINIMUM_PARAM"]
+    plt.figure(figsize=(12, 6))
+    
+    plt.subplot(1, 2, 1)
+    plt.plot(solucao, 'bo', alpha=0.7)
+    plt.axhline(y=global_min, color='r', linestyle='--')
+    plt.title(f'Valores das Variáveis\n{fn_name.capitalize()}')
+    plt.xlabel('Índice da Variável')
+    plt.ylabel('Valor')
+    plt.grid(True)
+    
+    plt.subplot(1, 2, 2)
+    distancias = np.abs(solucao - global_min)
+    plt.bar(range(len(distancias)), distancias, alpha=0.7)
+    plt.title('Distância ao Ótimo Global')
+    plt.xlabel('Índice da Variável')
+    plt.ylabel('Distância')
+    plt.grid(True)
+    
+    plt.tight_layout()
+    plt.show()
+
+
 if __name__ == "__main__":
     funcoes = [ackley, rastrigin, schwefel, rosenbrock]
     d = 30
@@ -107,13 +161,20 @@ if __name__ == "__main__":
         fn_name = funcao.__name__
         cfg = configs[fn_name]
         
-        solucao, fitness = estrategia_evolutiva_modular(
+        print(f"\n=== Executando {fn_name.capitalize()} ===")
+        solucao, fitness, historico_fitness, historico_sigma = estrategia_evolutiva_modular(
             funcao,
             d=d,
             max_iter=cfg.get('max_iter', 500),
             pop_size=cfg.get('pop_size', 50),
             sigma_inicial=cfg.get('sigma_inicial'),
-            tol=1e-8
+            tol=1e-8,
+            verbose=True
         )
         
         avaliar_resultados(solucao, fitness, fn_name)
+        
+        # Plotagem dos gráficos
+        plotar_convergencia(historico_fitness, fn_name)
+        plotar_evolucao_sigma(historico_sigma, fn_name)
+        plotar_distribuicao_solucao(solucao, fn_name)
